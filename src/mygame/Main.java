@@ -16,7 +16,7 @@ public class Main extends SimpleApplication {
     // --- Variables de Animación ---
     private com.jme3.ui.Picture fondoMenu;
     private com.jme3.texture.Texture2D[] framesMenu;
-    private int totalFrames = 99;
+    private int totalFrames = 58;
     private float timerMenu = 0;
     private int frameActualMenu = 0;
     private final float VEL_MENU = 0.04f;
@@ -54,7 +54,7 @@ public class Main extends SimpleApplication {
         framesMenu = new com.jme3.texture.Texture2D[totalFrames];
         for (int i = 0; i < totalFrames; i++) {
             int num = i + 1;
-            String ruta = "Textures/Menu/PipBoy v2_40ms_" + num + ".png";
+            String ruta = "Textures/Menu/pipbpy_" + num + ".png";
             framesMenu[i] = (com.jme3.texture.Texture2D) assetManager.loadTexture(ruta);
         }
 

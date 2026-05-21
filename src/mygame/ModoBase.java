@@ -83,14 +83,19 @@ public abstract class ModoBase implements GameMode {
     protected Material playerMat;
     protected Vector3f playerDir  = new Vector3f(1, 0, 0);
     protected float    shootTimer = 9999f; // listo para disparar al inicio
+    
     // ── Variables para la animación ─────────────────────────
-    private Texture[] animDerecha = new Texture[4];
     private float tiempoAnimacion = 0f;
     private int frameActual = 0;
     private final float VEL_ANIMACION = 0.15f; // Cambia de imagen cada 0.15 segundos
     
-    private Texture[] animIzquierda = new Texture[4];
+    private Texture[] animDerecha = new Texture[5];
+    private Texture[] animIzquierda = new Texture[5];
+    private String ultimaDireccion = "DERECHA";
     
+    private Material[] animDerechaEnem = new Material[5];
+    private Material[] animIzquierdaEnem = new Material[5];
+    private final float VEL_ANIM_ENEMIGO = 0.12f;
     
     // ── Vidas e invencibilidad ───────────────────────────────
     protected int     vidas           = 3;
@@ -200,17 +205,18 @@ public abstract class ModoBase implements GameMode {
         
         // Cargar las texturas de la derecha
         
-        animDerecha[0] = assetManager.loadTexture("Textures/Personaje_1/PjDer1.png"); // Caminando 1
-        animDerecha[1] = assetManager.loadTexture("Textures/Personaje_1/PjDer2.png"); // Caminando 2
-        animDerecha[2] = assetManager.loadTexture("Textures/Personaje_1/PjDer3.png"); // Caminando 3
-        animDerecha[3] = assetManager.loadTexture("Textures/Personaje_1/PjDer4.png"); // Caminando 4
+        animDerecha[0] = assetManager.loadTexture("Textures/Personaje_1/PjRight_0.png"); // Caminando 1
+        animDerecha[1] = assetManager.loadTexture("Textures/Personaje_1/PjRight_1.png"); // Caminando 2
+        animDerecha[2] = assetManager.loadTexture("Textures/Personaje_1/PjRight_2.png"); // Caminando 3
+        animDerecha[3] = assetManager.loadTexture("Textures/Personaje_1/PjRight_3.png"); // Caminando 4
+        animDerecha[4] = assetManager.loadTexture("Textures/Personaje_1/PjRight_4.png"); // Caminando 4
        
-        animIzquierda[0] = assetManager.loadTexture("Textures/Personaje_1/l0_sprite_1.png"); // Caminando 1
-        animIzquierda[1] = assetManager.loadTexture("Textures/Personaje_1/l0_sprite_2.png"); // Caminando 2
-        animIzquierda[2] = assetManager.loadTexture("Textures/Personaje_1/l0_sprite_3.png"); // Caminando 3
-        animIzquierda[3] = assetManager.loadTexture("Textures/Personaje_1/l0_sprite_4.png"); // Caminando 4
-        
-        
+        animIzquierda[0] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_0.png"); // Caminando 1
+        animIzquierda[1] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_1.png"); // Caminando 2
+        animIzquierda[2] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_2.png"); // Caminando 3
+        animIzquierda[3] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_3.png"); // Caminando 4
+        animIzquierda[4] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_4.png"); // Caminando 5
+            
         enemiesNode      = new Node("enemies");
         bulletsNode      = new Node("bullets");
         enemyBulletsNode = new Node("enemyBullets");
@@ -228,6 +234,21 @@ public abstract class ModoBase implements GameMode {
         registrarInput();
 
         for (int i = 0; i < spawnInicial(); i++) spawnEnemy();
+        
+        // --- CARGAR VARIANTES DERECHA E IZQUIERDA ---
+        for (int i = 0; i < 5; i++) {
+            // 1. Cargar imágenes mirando a la derecha (o base)
+            animDerechaEnem[i] = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+            Texture texDer = assetManager.loadTexture("Textures/Enemigo_1/enemy_" + i + ".png");
+            animDerechaEnem[i].setTexture("ColorMap", texDer);
+            animDerechaEnem[i].getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+
+            // 2. Cargar imágenes mirando a la izquierda
+            animIzquierdaEnem[i] = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+            Texture texIzq = assetManager.loadTexture("Textures/Enemigo_1/EnemyLeft_" + i + ".png");
+            animIzquierdaEnem[i].setTexture("ColorMap", texIzq);
+            animIzquierdaEnem[i].getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+    }
     }    
 
     @Override
@@ -258,6 +279,7 @@ public abstract class ModoBase implements GameMode {
         
         Material matJugador = player.getMaterial();
         if (moveRight) {
+            
             // Le sumamos el tiempo que pasó desde el último frame
             tiempoAnimacion += tpf; 
             
@@ -271,12 +293,16 @@ public abstract class ModoBase implements GameMode {
                 if (frameActual >= animDerecha.length) {
                     frameActual = 1; 
                 }
-                
+         
                 // Le ponemos la nueva imagen al mono
                 matJugador.setTexture("ColorMap", animDerecha[frameActual]);
             }
             
+            // ¡Guardamos que la última dirección fue derecha!
+            ultimaDireccion = "DERECHA";
+            
         }else if (moveLeft){
+            
             // Le sumamos el tiempo que pasó desde el último frame
             tiempoAnimacion += tpf; 
             
@@ -294,6 +320,9 @@ public abstract class ModoBase implements GameMode {
                 // Le ponemos la nueva imagen al mono
                 matJugador.setTexture("ColorMap", animIzquierda[frameActual]);
             }
+            
+            // ¡Guardamos que la última dirección fue izquierda!
+            ultimaDireccion = "IZQUIERDA";
             
         }else if (moveDown){
             // Le sumamos el tiempo que pasó desde el último frame
@@ -313,6 +342,10 @@ public abstract class ModoBase implements GameMode {
                 // Le ponemos la nueva imagen al mono
                 matJugador.setTexture("ColorMap", animIzquierda[frameActual]);
             }
+            
+            // ¡Guardamos que la última dirección fue izquierda!
+            ultimaDireccion = "IZQUIERDA";
+            
         }else if (moveUp){
             // Le sumamos el tiempo que pasó desde el último frame
             tiempoAnimacion += tpf; 
@@ -332,13 +365,31 @@ public abstract class ModoBase implements GameMode {
                 matJugador.setTexture("ColorMap", animDerecha[frameActual]);
             }
             
+            // ¡Guardamos que la última dirección fue derecha!
+            ultimaDireccion = "DERECHA";
+            
         }else if (!moveLeft && !moveUp && !moveDown && !moveRight) {
-            Texture textPerson1 = assetManager.loadTexture("Textures/Personaje_1/Personaje_1.png"); //textura 
-            // Si NO se está moviendo a ningún lado, lo dejamos quieto y reiniciamos todo
-            matJugador.setTexture("ColorMap", textPerson1); // PjDer0.png
-            frameActual = 0;
-            tiempoAnimacion = 0f;
+            
+            if (ultimaDireccion.equals("IZQUIERDA")) {
+            // Ponemos la textura fija mirando a la izquierda
+                Texture textPerson1 = assetManager.loadTexture("Textures/Personaje_1/PjLeft_0.png"); //textura 
+                // Si NO se está moviendo a ningún lado, lo dejamos quieto y reiniciamos todo
+                matJugador.setTexture("ColorMap", textPerson1); // PjDer0.png
+                frameActual = 0;
+                tiempoAnimacion = 0f;
+            
+            } else if (ultimaDireccion.equals("DERECHA")) {
+                Texture textPerson1 = assetManager.loadTexture("Textures/Personaje_1/PjRight_0.png"); //textura 
+                // Si NO se está moviendo a ningún lado, lo dejamos quieto y reiniciamos todo
+                matJugador.setTexture("ColorMap", textPerson1); // PjDer0.png
+                frameActual = 0;
+                tiempoAnimacion = 0f;
+            }
+            
         }
+        
+        
+        
     }
 
     @Override
@@ -399,14 +450,11 @@ public abstract class ModoBase implements GameMode {
         modoRoot.attachChild(arena);
     }
 
-    private void setupJugador() {
-        Texture textPerson1 = assetManager.loadTexture("Textures/Personaje_1/Personaje_1.png"); //textura 
+    private void setupJugador() { 
         Box shape = new Box(0.8f, 0f, 1f);
         player = new Geometry("player", shape);
         playerMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         player.rotate(0, 4.7f, 0);
-        //playerMat.setColor("Color", ColorRGBA.Blue);
-        playerMat.setTexture("ColorMap", textPerson1);
         playerMat.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
         player.setMaterial(playerMat);
         player.setQueueBucket(RenderQueue.Bucket.Transparent);
@@ -457,7 +505,9 @@ public abstract class ModoBase implements GameMode {
     }
 
     /** Línea de info extra que cada subclase puede customizar */
-    protected String infoExtra() { return "  |  WASD: mover  |  ESPACIO: disparar  |  ESC: menú"; }
+    protected String infoExtra() { 
+        return "  |  WASD: mover  |  ESPACIO: disparar  |  ESC: menú"; 
+    }
 
     private void actualizarHUDVidas() {
         int max = maxVidas();
@@ -547,15 +597,70 @@ public abstract class ModoBase implements GameMode {
     //  IA ENEMIGOS
     // ══════════════════════════════════════════════════════
     private void moverEnemigos(float tpf) {
+
         Vector3f pPos = player.getLocalTranslation();
+
         for (EnemyData e : enemies) {
-            Vector3f dir = pPos.subtract(e.geometry.getLocalTranslation());
+
+            Vector3f posicionActual = e.geometry.getLocalTranslation();
+
+            Vector3f dir = pPos.subtract(posicionActual);
+
             if (dir.lengthSquared() > 0.01f) {
+
                 dir.normalizeLocal();
-                Vector3f np = e.geometry.getLocalTranslation()
-                        .add(dir.mult(enemySpeed() * tpf));
-                np.y = 0.4f;
-                e.geometry.setLocalTranslation(np);
+
+                // =================================================
+                // MOVIMIENTO
+                // =================================================
+                Vector3f nuevaPos = posicionActual.add(
+                        dir.mult(enemySpeed() * tpf)
+                );
+
+                nuevaPos.y = 0.4f;
+
+                e.geometry.setLocalTranslation(nuevaPos);
+
+                // =================================================
+                // DETECTAR DIRECCIÓN
+                // =================================================
+                if (dir.x > 0) {
+                    e.mirandoDerecha = true;
+                } else if (dir.x < 0) {
+                    e.mirandoDerecha = false;
+                }
+
+                // =================================================
+                // ANIMACIÓN
+                // =================================================
+                e.tiempoAnimacion += tpf;
+
+                if (e.tiempoAnimacion >= VEL_ANIM_ENEMIGO) {
+
+                    e.tiempoAnimacion = 0f;
+
+                    e.frameActual++;
+
+                    if (e.frameActual >= animDerechaEnem.length) {
+                        e.frameActual = 0;
+                    }
+
+                    // =================================================
+                    // CAMBIAR MATERIAL SEGÚN DIRECCIÓN
+                    // =================================================
+                    if (e.mirandoDerecha) {
+
+                        e.geometry.setMaterial(
+                                animDerechaEnem[e.frameActual]
+                        );
+
+                    } else {
+
+                        e.geometry.setMaterial(
+                                animIzquierdaEnem[e.frameActual]
+                        );
+                    }
+                }
             }
         }
     }
@@ -723,11 +828,10 @@ public abstract class ModoBase implements GameMode {
     //  SPAWN DESDE LOS BORDES
     // ══════════════════════════════════════════════════════
     protected void spawnEnemy() {
-        Box shape = new Box(0.4f, 0.4f, 0.4f);
+        Box shape = new Box(0.8f, 0f, 1f);
         Geometry g = new Geometry("enemy", shape);
-        Material m = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        m.setColor("Color", colorEnemigo());
-        g.setMaterial(m);
+        g.setMaterial(animDerechaEnem[0]);
+        g.setQueueBucket(RenderQueue.Bucket.Transparent);
 
         float edge = ARENA_SIZE - 0.55f;
         float x, z;
@@ -737,10 +841,11 @@ public abstract class ModoBase implements GameMode {
             case 2 -> { x = -edge; z = rnd(edge); }
             default->{ x =  edge; z = rnd(edge); }
         }
-        g.setLocalTranslation(x, 0.4f, z);
+        g.setLocalTranslation(x, 0.3f, z);
         enemiesNode.attachChild(g);
         // Offset aleatorio para que los enemigos no disparen todos a la vez
         enemies.add(new EnemyData(g, FastMath.rand.nextFloat() * enemyShootTime()));
+        g.rotate(0, 4.7f, 0);
     }
 
     private float rnd(float edge) {
@@ -800,10 +905,22 @@ public abstract class ModoBase implements GameMode {
         Geometry geometry; Vector3f direction; float lifetime;
         BulletData(Geometry g, Vector3f d, float l) { geometry=g; direction=d; lifetime=l; }
     }
-
+    
     protected static class EnemyData {
+
         Geometry geometry;
-        float    shootTimer;
-        EnemyData(Geometry g, float st) { geometry = g; shootTimer = st; }
+        float shootTimer;
+
+        // --- Animación ---
+        int frameActual = 0;
+        float tiempoAnimacion = 0f;
+
+        // Dirección actual
+        boolean mirandoDerecha = true;
+
+        EnemyData(Geometry g, float st) {
+            geometry = g;
+            shootTimer = st;
+        }
     }
 }
