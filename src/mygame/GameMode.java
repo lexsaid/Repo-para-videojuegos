@@ -49,4 +49,11 @@ public interface GameMode {
 
     /** True si la partida actual terminó en Game Over. */
     boolean isGameOver();
+
+    /**
+     * Balas restantes del modo actual.
+     * Devuelve -1 por defecto → munición infinita (Clásico, Abanico, Supervivencia).
+     * ModoZombies sobreescribe esto para devolver su contador real.
+     */
+    default int getBalasRestantes() { return -1; }
 }
