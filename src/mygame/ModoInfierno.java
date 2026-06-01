@@ -21,6 +21,7 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
 import com.jme3.texture.Texture;
+import com.jme3.scene.shape.Quad;
  
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -83,6 +84,9 @@ public class ModoInfierno implements GameMode {
     private float   spawnTimer = 0f;
  
     private final List<BulletData> enemyBullets = new ArrayList<>();
+    
+    private Material materialBalaJugador;
+    private Material materialBalaEnemigo;
  
     // ══════════════════════════════════════════════════════
     //  JUGADOR 1 — Personaje_1, flechas + NUM+, -
@@ -180,6 +184,18 @@ public class ModoInfierno implements GameMode {
         modoRoot.attachChild(enemyBulletsNode);
  
         cargarTexturas();
+        
+        // Cargar texturas de balas
+        Texture texBalaJugador = assetManager.loadTexture("Textures/Balas/Bala_1.png");
+        materialBalaJugador = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        materialBalaJugador.setTexture("ColorMap", texBalaJugador);
+        materialBalaJugador.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+
+        Texture texBalaEnemigo = assetManager.loadTexture("Textures/Balas/Bala_0.png");
+        materialBalaEnemigo = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        materialBalaEnemigo.setTexture("ColorMap", texBalaEnemigo);
+        materialBalaEnemigo.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+        
         setupArena();
         setupJugadores();
         setupHUD();
@@ -308,8 +324,8 @@ public class ModoInfierno implements GameMode {
             p1AnimI[i] = assetManager.loadTexture("Textures/Personaje_1/PjLeft_"  + i + ".png");
         }
         for (int i = 0; i < 4; i++) {
-            p2AnimD[i] = assetManager.loadTexture("Textures/Personaje_2/PjRight_" + (i + 1) + ".png");
-            p2AnimI[i] = assetManager.loadTexture("Textures/Personaje_2/PjLeft_"  + (i + 1) + ".png");
+            p2AnimD[i] = assetManager.loadTexture("Textures/Personaje_2/Pj2Right_" + (i + 1) + ".png");
+            p2AnimI[i] = assetManager.loadTexture("Textures/Personaje_2/Pj2Left_"  + (i + 1) + ".png");
         }
         // Tipo 0: Enemigo_1 (5 frames)
         matEnemigoD[0] = new Material[5]; matEnemigoI[0] = new Material[5];
@@ -351,15 +367,15 @@ public class ModoInfierno implements GameMode {
     }
  
     private void setupJugadores() {
+        Box shape1 = new Box(0.8f, 0.01f, 1f);
+        p1Geo = new Geometry("p1", shape1);
         p1Mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         p1Mat.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
         p1Mat.setTexture("ColorMap", p1AnimD[0]);
-        p1Mat.setColor("Color", ColorRGBA.White);
-        p1Geo = new Geometry("p1", new Box(0.8f, 0.01f, 1f));
         p1Geo.setMaterial(p1Mat);
         p1Geo.setQueueBucket(RenderQueue.Bucket.Transparent);
         p1Geo.rotate(0, 4.7f, 0);
-        p1Geo.setLocalScale(1f);
+        p1Geo.setLocalScale(1f, 1f, 1f);
         p1Geo.setLocalTranslation(-3f, 0.3f, 0f);
         modoRoot.attachChild(p1Geo);
  
@@ -593,14 +609,30 @@ public class ModoInfierno implements GameMode {
     }
  
     private void crearBala(Vector3f origen, Vector3f dir,
-                            Node nodo, List<BulletData> lista, ColorRGBA color) {
-        Geometry g = new Geometry("bala", new Box(0.1f, 0.1f, 0.1f));
-        Material m = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        m.setColor("Color", color);
-        g.setMaterial(m);
-        g.setLocalTranslation(origen);
+                        Node nodo, List<BulletData> lista, ColorRGBA color) {
+        Quad shape = new Quad(0.7f, 0.35f);
+        Geometry g = new Geometry("bala", shape);
+        g.center();
+        orientarBalaInfierno(g, dir.normalize());
+
+        Material mat = materialBalaJugador.clone();
+        mat.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+        g.setMaterial(mat);
+        g.setQueueBucket(RenderQueue.Bucket.Transparent);
+
+        Vector3f pos = origen.clone();
+        pos.y = 0.25f;
+        g.setLocalTranslation(pos);
         nodo.attachChild(g);
         lista.add(new BulletData(g, dir, BULLET_LIFETIME));
+    }
+
+    /** Orienta un Quad horizontal apuntando en la dirección de vuelo (vista top-down). */
+    private void orientarBalaInfierno(Geometry g, Vector3f dir) {
+        float angulo = FastMath.atan2(dir.z, dir.x);
+        Quaternion tumbado = new Quaternion().fromAngleAxis(-FastMath.HALF_PI, Vector3f.UNIT_X);
+        Quaternion giro    = new Quaternion().fromAngleAxis(-angulo, Vector3f.UNIT_Y);
+        g.setLocalRotation(giro.mult(tumbado));
     }
  
     // ══════════════════════════════════════════════════════
@@ -634,11 +666,19 @@ public class ModoInfierno implements GameMode {
             if (dir.lengthSquared() <= 0.01f) continue;
             dir.normalizeLocal();
  
-            Geometry g = new Geometry("eBullet", new Box(0.12f, 0.12f, 0.12f));
-            Material m = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-            m.setColor("Color", ColorRGBA.Magenta);
-            g.setMaterial(m);
-            g.setLocalTranslation(e.geo.getLocalTranslation().clone());
+            Quad eShape = new Quad(0.7f, 0.35f);
+            Geometry g = new Geometry("eBullet", eShape);
+            g.center();
+            orientarBalaInfierno(g, dir);
+
+            Material matE = materialBalaEnemigo.clone();
+            matE.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+            g.setMaterial(matE);
+            g.setQueueBucket(RenderQueue.Bucket.Transparent);
+
+            Vector3f eOrigen = e.geo.getLocalTranslation().clone();
+            eOrigen.y = 0.25f;
+            g.setLocalTranslation(eOrigen);
             enemyBulletsNode.attachChild(g);
             enemyBullets.add(new BulletData(g, dir, BULLET_LIFETIME));
         }
@@ -651,6 +691,7 @@ public class ModoInfierno implements GameMode {
             b.lifetime -= tpf;
             if (b.lifetime <= 0) { nodo.detachChild(b.geo); it.remove(); continue; }
             Vector3f p = b.geo.getLocalTranslation().add(b.dir.mult(BULLET_SPEED * tpf));
+            p.y = 0.25f;
             b.geo.setLocalTranslation(p);
             if (Math.abs(p.x) > ARENA_SIZE + 1 || Math.abs(p.z) > ARENA_SIZE + 1) {
                 nodo.detachChild(b.geo); it.remove();
@@ -665,6 +706,7 @@ public class ModoInfierno implements GameMode {
             b.lifetime -= tpf;
             if (b.lifetime <= 0) { enemyBulletsNode.detachChild(b.geo); it.remove(); continue; }
             Vector3f p = b.geo.getLocalTranslation().add(b.dir.mult(ENEMY_BULLET_SPEED * tpf));
+            p.y = 0.25f;
             b.geo.setLocalTranslation(p);
             if (Math.abs(p.x) > ARENA_SIZE + 1 || Math.abs(p.z) > ARENA_SIZE + 1) {
                 enemyBulletsNode.detachChild(b.geo); it.remove();

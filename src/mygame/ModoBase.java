@@ -20,6 +20,7 @@ import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
+import com.jme3.scene.shape.Quad;
 import com.jme3.texture.Texture;
  
 import java.util.ArrayList;
@@ -89,6 +90,10 @@ public abstract class ModoBase implements GameMode {
     private Material[] matsEnemigoDerecha;
     private Material[] matsEnemigoIzquierda;
     private static final float VEL_ANIM_ENEMIGO = 0.12f;
+    
+    // Texturas de balas
+    private Material materialBalaJugador;
+    private Material materialBalaEnemigo;
  
     // ── Vidas e invencibilidad ───────────────────────────────
     protected int     vidas           = 3;
@@ -246,6 +251,18 @@ public abstract class ModoBase implements GameMode {
             matsEnemigoIzquierda[i] = crearMaterialTextura(rutaEnemigoIzquierda() + i + ".png");
         }
  
+        // Cargar texturas de balas
+        Texture texBalaJugador = assetManager.loadTexture("Textures/Balas/Bala_1.png");
+        materialBalaJugador = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        materialBalaJugador.setTexture("ColorMap", texBalaJugador);
+        materialBalaJugador.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+
+        Texture texBalaEnemigo = assetManager.loadTexture("Textures/Balas/Bala_0.png");
+        materialBalaEnemigo = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        materialBalaEnemigo.setTexture("ColorMap", texBalaEnemigo);
+        materialBalaEnemigo.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
+
+        
         setupArena();
         setupJugador();
         setupHUD();
@@ -591,14 +608,36 @@ public abstract class ModoBase implements GameMode {
     }
  
     protected void crearBalaEnemiga(Vector3f origen, Vector3f dir) {
-        Box shape = new Box(0.12f, 0.12f, 0.12f);
+        Quad shape = new Quad(0.7f, 0.35f);
         Geometry g = new Geometry("eBullet", shape);
-        Material m = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        m.setColor("Color", ColorRGBA.Magenta);
-        g.setMaterial(m);
+        g.center();
+        orientarBala(g, dir.normalize());
+        Material matE = materialBalaEnemigo.clone();
+        matE.getAdditionalRenderState().setBlendMode(
+            com.jme3.material.RenderState.BlendMode.Alpha);
+        g.setMaterial(matE);
+        g.setQueueBucket(com.jme3.renderer.queue.RenderQueue.Bucket.Transparent);
         g.setLocalTranslation(origen);
         enemyBulletsNode.attachChild(g);
         enemyBullets.add(new BulletData(g, dir, BULLET_LIFETIME));
+    }
+
+    /**
+     * Rota un Quad plano (en el plano XZ, vista top-down) para que
+     * su eje largo apunte en la dirección de vuelo.
+     * El Quad por defecto está en el plano XY, así que primero lo
+     * tumbamos 90° en X y luego lo giramos en Y según la dirección.
+     */
+    private void orientarBala(Geometry g, Vector3f dir) {
+        // Ángulo entre el eje +X y la dirección del proyectil (en el plano XZ)
+        float angulo = FastMath.atan2(dir.z, dir.x);
+        Quaternion rot = new Quaternion();
+        // -90° en X  → tumba el quad al suelo (plano XZ)
+        // angulo en Y → apunta hacia la dirección correcta
+        Quaternion tumbado = new Quaternion().fromAngleAxis(-FastMath.HALF_PI, Vector3f.UNIT_X);
+        Quaternion giro    = new Quaternion().fromAngleAxis(-angulo, Vector3f.UNIT_Y);
+        g.setLocalRotation(giro.mult(tumbado));
+        g.setLocalTranslation(0, 0.25f, 0); // pequeña elevación para que no se hunda en el suelo
     }
  
     // ══════════════════════════════════════════════════════
@@ -612,12 +651,21 @@ public abstract class ModoBase implements GameMode {
     }
  
     protected void crearBalaJugador(Vector3f dir) {
-        Box shape = new Box(0.1f, 0.1f, 0.1f);
+        Quad shape = new Quad(0.7f, 0.35f);
         Geometry g = new Geometry("bullet", shape);
-        Material m = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        m.setColor("Color", ColorRGBA.Yellow);
-        g.setMaterial(m);
-        g.setLocalTranslation(player.getLocalTranslation().clone());
+        g.center();
+        orientarBala(g, dir.normalize());
+
+        Material mat = materialBalaJugador.clone();
+        mat.getAdditionalRenderState().setBlendMode(
+            com.jme3.material.RenderState.BlendMode.Alpha);
+        g.setMaterial(mat);
+        g.setQueueBucket(com.jme3.renderer.queue.RenderQueue.Bucket.Transparent);
+
+        // Posición: salir desde el jugador, misma altura que el sprite
+        Vector3f pos = player.getLocalTranslation().clone();
+        pos.y = 0.25f;
+        g.setLocalTranslation(pos);
         bulletsNode.attachChild(g);
         bullets.add(new BulletData(g, dir.normalizeLocal(), BULLET_LIFETIME));
     }
@@ -635,6 +683,7 @@ public abstract class ModoBase implements GameMode {
             b.lifetime -= tpf;
             if (b.lifetime <= 0) { bulletsNode.detachChild(b.geometry); it.remove(); continue; }
             Vector3f p = b.geometry.getLocalTranslation().add(b.direction.mult(BULLET_SPEED * tpf));
+            p.y = 0.25f; // altura fija (sprite top-down)
             b.geometry.setLocalTranslation(p);
             if (Math.abs(p.x) > ARENA_SIZE + 1 || Math.abs(p.z) > ARENA_SIZE + 1) {
                 bulletsNode.detachChild(b.geometry); it.remove();
@@ -649,6 +698,7 @@ public abstract class ModoBase implements GameMode {
             b.lifetime -= tpf;
             if (b.lifetime <= 0) { enemyBulletsNode.detachChild(b.geometry); it.remove(); continue; }
             Vector3f p = b.geometry.getLocalTranslation().add(b.direction.mult(ENEMY_BULLET_SPEED * tpf));
+            p.y = 0.25f;
             b.geometry.setLocalTranslation(p);
             if (Math.abs(p.x) > ARENA_SIZE + 1 || Math.abs(p.z) > ARENA_SIZE + 1) {
                 enemyBulletsNode.detachChild(b.geometry); it.remove();

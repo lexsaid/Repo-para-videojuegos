@@ -59,8 +59,8 @@ public class ModoZombies extends ModoBase {
  
     // ── Escenario y Texturas ─────────────────────────────────
     @Override protected String rutaEscenario()          { return "Textures/Fondo/Escenario3.png";      }
-    @Override protected String rutaPersonajeDerecha()   { return "Textures/Personaje_2/PjRight_";      }
-    @Override protected String rutaPersonajeIzquierda() { return "Textures/Personaje_2/PjLeft_";       }
+    @Override protected String rutaPersonajeDerecha()   { return "Textures/Personaje_2/Pj2Right_";      }
+    @Override protected String rutaPersonajeIzquierda() { return "Textures/Personaje_2/Pj2Left_";       }
     @Override protected int    frameInicialPersonaje()  { return 1; } // archivos van de _1 a _4
     @Override protected int    cantidadFramesPersonaje(){ return 4; } // 4 frames: 1,2,3,4
     @Override protected String rutaEnemigoDerecha()     { return "Textures/Enemigo_3/PjRight_";        }
