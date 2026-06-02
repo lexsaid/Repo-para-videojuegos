@@ -29,25 +29,38 @@ import java.util.List;
  
 /**
  * =========================================================
- *  MODO BASE — lógica compartida por todos los modos
+ *  MODO BASE — Clase abstracta padre de todos los modos de juego
  * =========================================================
  *
- *  ModoClasico y ModoAbanico usan: Textures/Enemigo_1/
- *  ModoSupervivencia            usa: Textures/Enemigo_2/
- *  ModoZombies                  usa: Textures/Enemigo_2/
+ *  Contiene TODA la lógica común del juego:
+ *    - Movimiento del jugador (WASD) y animación por sprites
+ *    - Spawneo, movimiento y animación de enemigos
+ *    - Sistema de disparo: balas del jugador y de enemigos
+ *    - Detección de colisiones (bala-enemigo, enemigo-jugador, bala enemiga-jugador)
+ *    - Sistema de vidas, invencibilidad temporal y parpadeo
+ *    - Dos contadores de puntaje: scorePartida (se resetea) y scoreMaximo (récord de sesión)
+ *    - HUD genérico con vidas, cooldown, puntos y récord
+ *    - Música de fondo configurable por modo
+ *    - Escenario configurable (imagen de fondo)
  *
- *  Cada subclase solo necesita sobreescribir:
- *    · rutaEnemigoDerecha()    → carpeta/prefijo derecha
- *    · rutaEnemigoIzquierda()  → carpeta/prefijo izquierda
- *    · cantidadSkinsEnemigo()  → cuántos frames tiene la animación
- *    · crearDisparoJugador()   → cuántas balas y en qué ángulos
- *    · colorArena() / colorEnemigo() / nombreModo()
- *    · y los valores de velocidad, vidas, spawn, etc.
+ *  Qué texturas usa cada modo:
+ *    ModoClasico  y ModoAbanico → Textures/Enemigo_1/  (valor por defecto en ModoBase)
+ *    ModoSupervivencia          → Textures/Enemigo_2/  (sobreescribe las rutas)
+ *    ModoZombies                → Textures/Enemigo_3/  (sobreescribe las rutas)
+ *
+ *  Para crear un nuevo modo solo hay que sobreescribir los métodos abstractos:
+ *    · playerSpeed(), enemySpeed(), shootCooldown() → velocidades y cadencia
+ *    · maxVidas(), maxEnemigos(), spawnInicial()    → dificultad
+ *    · colorArena(), colorEnemigo(), nombreModo()   → apariencia
+ *    · crearDisparoJugador()                        → cuántas balas y en qué ángulos
+ *    · rutaEnemigoDerecha/Izquierda(), cantidadSkinsEnemigo() → texturas del enemigo
  * =========================================================
  */
 public abstract class ModoBase implements GameMode {
  
-    // ── Constantes fijas ────────────────────────────────────
+    // ── Constantes fijas ─────────────────────────────────────
+    // Valores que NO cambian entre modos. Definen los límites del arena,
+    // velocidad de proyectiles, tiempo de invencibilidad y puntos por kill.
     protected static final float ARENA_SIZE         = 20f;
     protected static final float JUGADOR_MARGEN     = 0.35f;
     protected static final float BULLET_SPEED       = 14f;
@@ -58,6 +71,8 @@ public abstract class ModoBase implements GameMode {
     protected static final int   PUNTOS_POR_ENEMIGO = 100;
  
     // ── Recursos jME ────────────────────────────────────────
+    // Referencias al motor: nodo raíz de la escena (rootNode), nodo de GUI,
+    // gestor de assets, gestor de input, cámara y fuente de texto.
     protected Node         rootNode;
     protected Node         guiNode;
     protected AssetManager assetManager;
@@ -66,6 +81,9 @@ public abstract class ModoBase implements GameMode {
     protected BitmapFont   guiFont;
  
     // ── Nodos de escena ─────────────────────────────────────
+    // modoRoot: nodo 3D padre de todo lo visible del modo (arena, personaje, enemigos, balas).
+    // modoGui:  nodo 2D padre de todos los textos del HUD.
+    // enemiesNode, bulletsNode, enemyBulletsNode: sub-nodos para organizar entidades.
     protected Node modoRoot;
     protected Node modoGui;
     protected Node enemiesNode;
@@ -73,12 +91,19 @@ public abstract class ModoBase implements GameMode {
     protected Node enemyBulletsNode;
  
     // ── Jugador ─────────────────────────────────────────────
+    // player: geometría visible del personaje (Quad 2D con textura).
+    // playerMat: material con la textura actual del personaje.
+    // playerDir: vector unitario que indica hacia dónde apunta/dispara el jugador.
+    // shootTimer: tiempo acumulado desde el último disparo; cuando supera shootCooldown() se puede volver a disparar.
     protected Geometry player;
     protected Material playerMat;
     protected Vector3f playerDir = new Vector3f(1, 0, 0);
     protected float    shootTimer = 9999f;
  
     // ── Animación del jugador ────────────────────────────────
+    // Arreglos de texturas para correr a la derecha y a la izquierda.
+    // El frame 0 es el de reposo; los frames 1-N son los de caminata.
+    // Se avanza un frame cada VEL_ANIM_JUGADOR segundos mientras el jugador se mueva.
     private Texture[] animDerecha;
     private Texture[] animIzquierda;
     private String    ultimaDireccion = "DERECHA";
@@ -87,6 +112,10 @@ public abstract class ModoBase implements GameMode {
     private static final float VEL_ANIM_JUGADOR = 0.15f;
  
     // ── Animación de enemigos ────────────────────────────────
+    // Materiales (no texturas) para animación: cada Material ya tiene
+    // su textura cargada y el BlendMode Alpha activado.
+    // Se usan arreglos separados para derecha e izquierda.
+    // La ruta de las texturas la define cada subclase vía rutaEnemigoDerecha/Izquierda().
     private Material[] matsEnemigoDerecha;
     private Material[] matsEnemigoIzquierda;
     private static final float VEL_ANIM_ENEMIGO = 0.12f;
@@ -96,6 +125,9 @@ public abstract class ModoBase implements GameMode {
     private Material materialBalaEnemigo;
  
     // ── Vidas e invencibilidad ───────────────────────────────
+    // Cuando el jugador recibe daño: pierde 1 vida y entra en estado invencible
+    // durante INVENCIBILITY_TIME segundos. Durante ese tiempo el personaje parpadea
+    // entre blanco y azul cada PARPADEO_INTERVAL segundos para indicar invencibilidad.
     protected int     vidas           = 3;
     protected float   invencibleTimer = 0f;
     protected float   parpadeoTimer   = 0f;
@@ -103,11 +135,20 @@ public abstract class ModoBase implements GameMode {
     protected boolean parpadeoVisible = true;
  
     // ── Estado ──────────────────────────────────────────────
+    // gameOver:    true cuando las vidas llegan a 0. Congela el update().
+    // scorePartida: puntos de la partida actual. Se reinicia con R.
+    // scoreMaximo:  mejor puntaje de la sesión. Nunca baja, sobrevive a reinicios.
     protected boolean gameOver      = false;
     protected int     scorePartida  = 0; // puntos de la partida actual (se resetea al reiniciar)
     protected int     scoreMaximo   = 0; // récord de la sesión (nunca baja)
  
     // ── HUD ─────────────────────────────────────────────────
+    // Textos superpuestos en pantalla (guiNode).
+    // hudVidas: corazones llenos ♥ y vacíos ♡ según vidas actuales.
+    // hudCooldown: muestra "LISTO" en verde o el tiempo restante en rojo.
+    // hudScorePartida: puntos de la partida actual (amarillo).
+    // hudScoreMaximo: récord de la sesión (naranja).
+    // hudGameOver / hudReinicio: ocultos hasta que ocurre Game Over.
     protected BitmapText hudVidas;
     protected BitmapText hudInfo;
     protected BitmapText hudCooldown;
@@ -127,6 +168,10 @@ public abstract class ModoBase implements GameMode {
     protected final List<EnemyData>  enemies      = new ArrayList<>();
  
     // ── Input ───────────────────────────────────────────────
+    // moveLeft/Right/Up/Down: estado de las teclas WASD (true = presionada).
+    // disparando: true mientras ESPACIO esté presionado.
+    // inputPrefix: prefijo único por modo para evitar conflictos de mappings entre modos.
+    //   Ejemplo: "ModoClasico" → mappings "ModoClasico LEFT", "ModoClasico SHOOT", etc.
     protected boolean moveLeft, moveRight, moveUp, moveDown;
     protected boolean disparando = false; // true mientras ESPACIO está presionado
     protected float   spawnTimer = 0f;
@@ -135,6 +180,33 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  MÉTODOS QUE CADA SUBCLASE DEBE SOBREESCRIBIR
     // ══════════════════════════════════════════════════════
+    //
+    //  Estos métodos son el "contrato" entre ModoBase y cada modo concreto.
+    //  Son abstractos (obligatorios) o tienen valor por defecto (opcionales).
+    //
+    //  OBLIGATORIOS (abstract):
+    //    playerSpeed()        → unidades/segundo del jugador
+    //    enemySpeed()         → unidades/segundo de los enemigos
+    //    shootCooldown()      → segundos entre disparos
+    //    maxVidas()           → vidas iniciales
+    //    maxEnemigos()        → límite de enemigos simultáneos en pantalla
+    //    spawnInicial()       → enemigos que aparecen al empezar
+    //    enemySpawnTime()     → segundos entre cada nuevo enemigo
+    //    colorArena()         → color de fondo del suelo (si no hay textura)
+    //    colorEnemigo()       → color base del sprite del enemigo
+    //    nombreModo()         → nombre que aparece en el HUD
+    //    crearDisparoJugador()→ define cuántas balas y en qué ángulos dispara
+    //
+    //  OPCIONALES (con default en ModoBase):
+    //    rutaEnemigoDerecha/Izquierda() → carpeta de texturas del enemigo
+    //    cantidadSkinsEnemigo()         → cuántos frames de animación tiene
+    //    rutaEscenario()                → imagen del suelo
+    //    rutaPersonajeDerecha/Izquierda()→ carpeta de texturas del personaje
+    //    cantidadFramesPersonaje()      → frames de animación del personaje
+    //    enemigosDisparan()             → si los enemigos tienen disparo activo
+    //    disparoAutomatico()            → si se puede mantener espacio para disparar
+    //    enemyShootTime()               → cadencia de disparo de los enemigos
+    //    rutaMusica()                   → archivo de música de fondo
  
     protected abstract float    playerSpeed();
     protected abstract float    enemySpeed();
@@ -195,6 +267,14 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  CICLO DE VIDA
     // ══════════════════════════════════════════════════════
+    //
+    //  iniciar()    → llamado UNA sola vez al entrar al modo. Carga texturas,
+    //                 construye la arena, el jugador, el HUD y registra el input.
+    //  update(tpf)  → llamado CADA FRAME desde Main.simpleUpdate().
+    //                 tpf (time per frame) = segundos desde el frame anterior.
+    //                 Aquí ocurre todo: movimiento, IA, colisiones, HUD.
+    //  onReiniciar()→ resetea el estado sin salir del modo (tecla R).
+    //  destruir()   → limpia geometrías, HUD y listeners al salir con ESC.
  
     @Override
     public void iniciar(Node rootNode, Node guiNode,
@@ -356,6 +436,12 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  CONSTRUCCIÓN DE ESCENA
     // ══════════════════════════════════════════════════════
+    //
+    //  setupArena()   → crea el plano del suelo (Box plano) y le aplica la
+    //                   textura del escenario (rutaEscenario()).
+    //  setupJugador() → crea el sprite del jugador (Box plano con textura PNG
+    //                   del frame 0 del personaje). Usa BlendMode.Alpha para
+    //                   que el fondo negro del PNG sea transparente.
  
     private void setupArena() {
         Box shape = new Box(ARENA_SIZE, 0.1f, ARENA_SIZE);
@@ -386,6 +472,11 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  HUD
     // ══════════════════════════════════════════════════════
+    //
+    //  setupHUD()         → crea todos los BitmapText y los adjunta a modoGui.
+    //  actualizarHUDVidas()→ recalcula la cadena de corazones según vidas actuales.
+    //  actualizarHUD()    → se llama cada frame; actualiza cooldown, puntos y récord.
+    //  ocultarHUDBase()   → oculta el HUD genérico (usado por ModoZombies que tiene su propio HUD).
  
     private void setupHUD() {
         float W  = cam.getWidth();
@@ -466,6 +557,11 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  ANIMACIÓN DEL JUGADOR
     // ══════════════════════════════════════════════════════
+    //
+    //  Avanza el frame del sprite según dirección de movimiento.
+    //  Si el jugador está quieto → frame 0 (pose de reposo).
+    //  Si se mueve → cicla frames 1..N cada VEL_ANIM_JUGADOR segundos.
+    //  La última dirección horizontal determina si usa animDerecha o animIzquierda.
  
     private void actualizarAnimacionJugador(float tpf) {
         boolean moviendose = moveLeft || moveRight || moveUp || moveDown;
@@ -505,6 +601,12 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  MOVIMIENTO DEL JUGADOR
     // ══════════════════════════════════════════════════════
+    //
+    //  moverJugador(tpf): suma el vector de dirección * speed * tpf a la posición.
+    //    - Normaliza la diagonal para que la velocidad sea igual en todas las direcciones.
+    //    - Limita la posición al borde del arena con FastMath.clamp.
+    //    - Gestiona el parpadeo de invencibilidad (alterna color blanco/azul).
+    //  actualizarCamara(): sigue al jugador pero queda fija si está en el borde del mapa.
  
     private void moverJugador(float tpf) {
         Vector3f pos = player.getLocalTranslation().clone();
@@ -555,6 +657,11 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  IA Y ANIMACIÓN DE ENEMIGOS
     // ══════════════════════════════════════════════════════
+    //
+    //  moverEnemigos(tpf): cada enemigo calcula el vector hacia el jugador,
+    //    lo normaliza y avanza enemySpeed() unidades/segundo hacia él.
+    //    Simultáneamente actualiza su animación: cicla frames según VEL_ANIM_ENEMIGO
+    //    y elige entre material Derecha o Izquierda según si dir.x es positivo o negativo.
  
     private void moverEnemigos(float tpf) {
         Vector3f pPos = player.getLocalTranslation();
@@ -591,6 +698,11 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  DISPARO DE ENEMIGOS (solo ModoSupervivencia)
     // ══════════════════════════════════════════════════════
+    //
+    //  Solo activo cuando enemigosDisparan() retorna true.
+    //  Cada enemigo tiene su propio shootTimer. Cuando llega a enemyShootTime()
+    //  crea una bala que apunta directamente al jugador (sin dispersión).
+    //  La bala enemiga usa textura Bala_0.png y se mueve a ENEMY_BULLET_SPEED.
  
     private void actualizarDisparoEnemigos(float tpf) {
         Vector3f pPos = player.getLocalTranslation();
@@ -643,6 +755,14 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  BALAS DEL JUGADOR
     // ══════════════════════════════════════════════════════
+    //
+    //  intentarDisparar(): verifica que el cooldown esté listo y llama crearDisparoJugador().
+    //  crearBalaJugador(dir): crea un Quad 2D orientado hacia "dir" con textura Bala_1.png.
+    //    Usa orientarBala() para rotar el sprite y apuntar en la dirección correcta.
+    //  crearBalaEnAngulo(gradosY): rota playerDir N grados en Y y crea una bala.
+    //    Usado por ModoAbanico para el disparo triple (+30°, 0°, -30°).
+    //  orientarBala(): tumba el Quad 90° en X (para vista top-down) y lo rota en Y
+    //    según el ángulo de la dirección de vuelo.
  
     protected void intentarDisparar() {
         if (gameOver || shootTimer < shootCooldown()) return;
@@ -709,6 +829,12 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  COLISIONES
     // ══════════════════════════════════════════════════════
+    //
+    //  Detección por distancia (no hitbox compleja):
+    //    bala-enemigo:        distancia < 0.55 → elimina ambos, suma puntos
+    //    enemigo-jugador:     distancia < 0.75 → llama recibirDanio()
+    //    bala enemiga-jugador:distancia < 0.45 → llama recibirDanio()
+    //  La distancia se compara entre centros de los sprites.
  
     private void detectarColisionesBalaEnemigo() {
         List<BulletData> rb = new ArrayList<>();
@@ -750,6 +876,11 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  VIDA / GAME OVER
     // ══════════════════════════════════════════════════════
+    //
+    //  recibirDanio(): resta 1 vida. Si quedan vidas activa invencibilidad temporal
+    //    y regresa al jugador al centro. Si no quedan vidas llama activarGameOver().
+    //  activarGameOver(): congela el juego, muestra el texto de Game Over con el puntaje
+    //    final y el récord de la sesión, y muestra las instrucciones de R/ESC.
  
     protected void recibirDanio() {
         vidas--;
@@ -778,6 +909,12 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  SPAWN DE ENEMIGOS
     // ══════════════════════════════════════════════════════
+    //
+    //  spawnEnemy(): crea un enemigo en uno de los 4 bordes del arena (al azar).
+    //    Usa el material del frame 0 de matsEnemigoDerecha[]. La posición X o Z
+    //    varía aleatoriamente a lo largo del borde elegido.
+    //  Los nuevos enemigos se encolan en la lista enemies[] para que
+    //  moverEnemigos() los procese en el siguiente frame.
  
     protected void spawnEnemy() {
         Box shape = new Box(0.8f, 0f, 1f);
@@ -806,6 +943,10 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  LIMPIEZA
     // ══════════════════════════════════════════════════════
+    //
+    //  limpiarEntidades(): elimina todas las geometrías de enemigos, balas del jugador
+    //    y balas enemigas de sus nodos de escena, y vacía las listas.
+    //    Se llama en onReiniciar() y en destruir().
  
     private void limpiarEntidades() {
         for (EnemyData  e : enemies)      enemiesNode.detachChild(e.geometry);
@@ -817,6 +958,13 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  INPUT
     // ══════════════════════════════════════════════════════
+    //
+    //  registrarInput(): crea mappings con prefijo único por modo (ej. "ModoClasico LEFT")
+    //    para evitar que dos modos activos al mismo tiempo se interfieran.
+    //    WASD → movimiento | ESPACIO → disparo.
+    //  inputListener: lambda que actualiza los booleanos de movimiento.
+    //    Si disparoAutomatico()=false solo dispara al PRESIONAR (not mantener).
+    //    Si disparoAutomatico()=true mantiene "disparando=true" y update() llama disparar cada frame.
  
     private void registrarInput() {
         String pfx = nombreModo().replace(" ", "");
@@ -845,6 +993,13 @@ public abstract class ModoBase implements GameMode {
     // ══════════════════════════════════════════════════════
     //  HELPERS
     // ══════════════════════════════════════════════════════
+    //
+    //  crearMaterialTextura(ruta): crea un Material Unshaded con la textura dada
+    //    y BlendMode.Alpha activado (para transparencia de PNGs con fondo negro).
+    //  htext(): atajo para crear BitmapText con tamaño y color dados.
+    //  BulletData: clase interna que agrupa geometría, dirección y tiempo de vida de una bala.
+    //  EnemyData: clase interna con geometría, timer de disparo, frame actual de animación
+    //    y dirección que mira el enemigo.
  
     private Material crearMaterialTextura(String ruta) {
         Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");

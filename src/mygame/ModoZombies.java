@@ -10,20 +10,33 @@ import com.jme3.scene.Node;
  
 /**
  * =========================================================
- * MODO ZOMBIES
+ *  MODO ZOMBIES — Horda masiva con munición limitada
  * =========================================================
- * · Velocidad jugador : rápida (6.5)
- * · Personaje         : Personaje_2
- * · Arma              : Ametralladora — 1 bala con dispersión ±15°
- * · Cadencia          : 0.12 s
- * · Balas totales     : 100
- * · Vidas             : 3
- * · Enemigos          : Enemigo_3, solo hacen daño al tocar (sin disparo)
- * · Spawn inicial     : 8  |  Máximo: 40  |  Spawn: 0.4 s
- * · Escenario         : Escenario3
- * · HUD               : esquina superior derecha
- * =========================================================
- */
+ *  Gran cantidad de enemigos lentos. El jugador es muy rápido pero tiene
+ *  munición limitada (100 balas). Se recarga con R sin que los enemigos
+ *  desaparezcan. Usa un personaje y enemigos distintos a los otros modos.
+ *
+ *  Características:
+ *    · Velocidad del jugador : rápida (6.5 u/s — la más alta de los modos base)
+ *    · Personaje             : Personaje_2 (Textures/Personaje_2/, 4 frames desde _1)
+ *    · Disparo               : 1 bala con dispersión aleatoria ±15° (ametralladora)
+ *    · Cadencia              : 0.12 s (la más rápida de todos los modos)
+ *    · Disparo automático    : sí (mantener ESPACIO)
+ *    · Munición              : 100 balas. Sin balas → no dispara. R = recarga (100)
+ *    · Vidas                 : 3 (con invencibilidad)
+ *    · Enemigos              : Enemigo_3 (4 frames). Solo dañan al tocar, NO disparan
+ *    · Spawn inicial         : 8  |  Máximo: 40  |  Spawn cada 0.4 s
+ *    · Escenario             : Textures/Fondo/Escenario3.png
+ *    · Música                : musica4.wav
+ *
+ *  HUD propio (sobreescribe el de ModoBase):
+ *    Ubicado en la esquina superior DERECHA. Muestra vidas, balas en cyan
+ *    (rojo cuando < 20), puntos/récord y cooldown. Llama ocultarHUDBase()
+ *    para ocultar el HUD genérico de ModoBase.
+ *
+ *  Esta clase sobreescribe actualizarHUDExtra(tpf) → ModoBase llama ese hook
+ *  en cada frame para que ModoZombies actualice su HUD propio.
+ * */
 public class ModoZombies extends ModoBase {
  
     // ── Munición ─────────────────────────────────────────────

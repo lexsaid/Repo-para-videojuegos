@@ -4,19 +4,27 @@ import com.jme3.math.ColorRGBA;
 
 /**
  * =========================================================
- * MODO SUPERVIVENCIA
+ *  MODO SUPERVIVENCIA — El modo más difícil de los modos base
  * =========================================================
- * · Velocidad jugador : normal (5.0)
- * · Disparo           : 3 balas (0°, +30°, −30°)
- * · Cadencia          : cooldown 0.40 s
- * · Vidas             : 1  (cualquier impacto = Game Over)
- * · Enemigos          : persiguen Y disparan cada 2.5 s
- * Sus balas (magenta) van al jugador
- * · Spawn inicial     : 6  |  Máximo en pantalla: 20
- * · Suelo             : rojo oscuro (señal de peligro)
- * · Texturas enemigos : Textures/Enemigo_2/  ← diferente a los otros modos
- * =========================================================
- */
+ *  Una sola vida: cualquier impacto (enemigo o bala enemiga) termina la partida.
+ *  Los enemigos también disparan, creando dos amenazas simultáneas.
+ *  El disparo del jugador es automático (mantener ESPACIO) con abanico triple.
+ *
+ *  Características:
+ *    · Velocidad del jugador : normal (5.0 u/s)
+ *    · Disparo               : abanico triple (−30°, 0°, +30°), automático al mantener ESPACIO
+ *    · Cadencia              : 0.40 s entre salvas
+ *    · Vidas                 : 1 sola vida — sin invencibilidad, cualquier golpe es Game Over
+ *    · Enemigos              : persiguen Y DISPARAN cada 2.5 s hacia el jugador
+ *    · Spawn inicial         : 6  |  Máximo: 20  |  Spawn cada 0.5 s (muy frecuente)
+ *    · Escenario             : Escenario2.png con fondo rojo oscuro
+ *    · Música                : musica3.wav
+ *    · Texturas enemigos     : Textures/Enemigo_2/ con 4 frames (sobreescribe ModoBase)
+ *
+ *  disparoAutomatico() = true → update() llama intentarDisparar() cada frame
+ *    mientras ESPACIO esté presionado, respetando el cooldown de 0.40 s.
+ *  enemigosDisparan() = true → ModoBase activa actualizarDisparoEnemigos() en el update.
+ * */
 public class ModoSupervivencia extends ModoBase {
 
     @Override protected float    playerSpeed()      { return 5.0f;  }

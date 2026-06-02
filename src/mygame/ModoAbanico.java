@@ -4,18 +4,26 @@ import com.jme3.math.ColorRGBA;
 
 /**
  * =========================================================
- * MODO ABANICO
+ *  MODO ABANICO — Tradeoff: cobertura amplia a cambio de velocidad
  * =========================================================
- * · Velocidad jugador : lenta (2.5 — mitad de la normal)
- * · Disparo           : 3 balas (0°, +30°, −30°)
- * · Cadencia          : cooldown 0.50 s
- * · Vidas             : 3  (2 s invencibilidad al recibir daño)
- * · Enemigos          : solo persiguen, NO disparan
- * · Spawn inicial     : 6  |  Máximo en pantalla: 30
- * · Suelo             : verde oscuro
- * · Texturas enemigos : Textures/Enemigo_1/  (heredado de ModoBase)
- * =========================================================
- */
+ *  El jugador se mueve a la mitad de velocidad pero dispara en tres
+ *  direcciones simultáneas (abanico), cubriendo un ángulo de 60°.
+ *  Hay más enemigos en pantalla que en Clásico, lo que compensa el disparo múltiple.
+ *
+ *  Características:
+ *    · Velocidad del jugador : lenta (2.5 u/s — mitad de ModoClasico)
+ *    · Disparo               : 3 balas en abanico (−30°, 0°, +30° respecto a playerDir)
+ *    · Cadencia              : 0.50 s entre salvas (cada salva = 3 balas)
+ *    · Vidas                 : 3 (con 2 s de invencibilidad)
+ *    · Enemigos              : persiguen, NO disparan
+ *    · Spawn inicial         : 6  |  Máximo simultáneo: 30 (más que Clásico)
+ *    · Escenario             : Escenario2.png (suelo marrón)
+ *    · Música                : musica1.wav
+ *    · Texturas enemigos     : Textures/Enemigo_1/ con 5 frames
+ *
+ *  crearDisparoJugador() llama crearBalaEnAngulo() tres veces con distintos ángulos.
+ *  crearBalaEnAngulo() rota playerDir N grados en Y antes de crear la bala.
+ * */
 public class ModoAbanico extends ModoBase {
 
     @Override protected float    playerSpeed()      { return 2.5f;  }

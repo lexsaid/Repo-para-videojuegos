@@ -11,11 +11,31 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
  
 /**
- * MAIN — Pip-Boy Animado con Selección de Modos
- */
+ * =========================================================
+ *  MAIN — Punto de entrada y controlador del menú principal
+ * =========================================================
+ *  Clase principal que arranca el juego (extiende SimpleApplication de jMonkeyEngine).
+ *
+ *  Responsabilidades:
+ *    1. Animar la pantalla de presentación del Pip-Boy (58 frames de PNG).
+ *    2. Mostrar el menú de selección de modo una vez terminada la animación.
+ *    3. Instanciar el modo elegido, pasarle los recursos compartidos e iniciarlo.
+ *    4. Gestionar el regreso al menú (ESC) y el reinicio (R).
+ *    5. Reproducir la música del menú (musica5.wav), pausarla al entrar a un modo
+ *       y reanudarla al volver.
+ *
+ *  Modos disponibles:
+ *    1 → ModoClasico       4 → ModoZombies
+ *    2 → ModoAbanico       5 → ModoInfierno (2 jugadores)
+ *    3 → ModoSupervivencia
+ * */
 public class Main extends SimpleApplication {
  
     // --- Variables de Animación ---
+    // Controlan la animación de entrada del Pip-Boy al abrir el juego.
+    // Se cargan 58 PNGs (pipbpy_1.png a pipbpy_58.png) y se muestran
+    // secuencialmente a VEL_MENU segundos por frame.
+    // menuMostrado = true cuando se llega al último frame → aparece el menú.
     private com.jme3.ui.Picture fondoMenu;
     private com.jme3.texture.Texture2D[] framesMenu;
     private int totalFrames = 58;
@@ -25,12 +45,18 @@ public class Main extends SimpleApplication {
     private boolean menuMostrado = false;
  
     // --- Estado del Juego ---
+    // enMenu: true mientras el menú esté activo; false mientras hay un modo en juego.
+    // modoActivo: referencia al GameMode actual. null cuando se está en el menú.
+    // ultimoScore / ultimoModo: guardan el puntaje y nombre del último modo jugado
+    //   para mostrarlo en el menú como "ÚLTIMA PARTIDA".
     private boolean enMenu = true;
     private GameMode modoActivo = null;
     private int ultimoScore = -1;
     private String ultimoModo = "";
  
     // --- Música del Menú ---
+    // musica5.wav reproducida en loop mientras el menú está activo.
+    // Se detiene al lanzar un modo y se reanuda al volver con ESC.
     private AudioNode musicaMenu;
  
     public static void main(String[] args) {
@@ -124,6 +150,10 @@ public class Main extends SimpleApplication {
     }
  
     // --- HUD Y TEXTOS ---
+    // mostrarMenuHUD(): construye el menú de selección sobre el fondo del Pip-Boy.
+    //   Muestra la última partida jugada si ultimoScore != -1.
+    // opcion(): helper para crear un BitmapText blanco centrado en pantalla.
+    // centrar(): calcula la X necesaria para que un texto quede centrado horizontalmente.
  
     private void mostrarMenuHUD() {
         guiNode.detachAllChildren();
@@ -166,6 +196,11 @@ public class Main extends SimpleApplication {
     }
  
     // --- CONTROLES ---
+    // Teclas 1-5: seleccionan modo (solo funcionan cuando menuMostrado = true).
+    // R: en ModoInfierno recarga balas de P2; en ModoZombies recarga munición;
+    //    en cualquier otro modo (o con Game Over activo) → reinicia la partida.
+    // P: en ModoInfierno recarga balas de P1.
+    // ESC: en menú → cierra la app; en juego → vuelve al menú (llama destruir()).
  
     private void setupMenuKeys() {
         inputManager.addMapping("MODO1",      new KeyTrigger(KeyInput.KEY_1));

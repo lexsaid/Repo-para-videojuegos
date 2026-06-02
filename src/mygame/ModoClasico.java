@@ -4,18 +4,24 @@ import com.jme3.math.ColorRGBA;
 
 /**
  * =========================================================
- * MODO CLÁSICO
+ *  MODO CLÁSICO — Modo introductorio, ideal para aprender los controles
  * =========================================================
- * · Velocidad jugador : normal (5.0)
- * · Disparo           : 1 bala al frente
- * · Cadencia          : rápida (cooldown 0.20 s)
- * · Vidas             : 3  (2 s invencibilidad al recibir daño)
- * · Enemigos          : solo persiguen, NO disparan
- * · Spawn inicial     : 6  |  Máximo en pantalla: 20
- * · Suelo             : gris azulado
- * · Texturas enemigos : Textures/Enemigo_1/  (heredado de ModoBase)
- * =========================================================
- */
+ *  El modo más sencillo. Un solo disparo al frente, cadencia rápida
+ *  y enemigos que solo persiguen sin disparar.
+ *
+ *  Características:
+ *    · Velocidad del jugador : normal (5.0 u/s)
+ *    · Disparo               : 1 bala directo al frente (ángulo 0°)
+ *    · Cadencia              : 0.20 s entre disparos (la más rápida de los modos base)
+ *    · Vidas                 : 3 (con 2 s de invencibilidad tras cada golpe)
+ *    · Enemigos              : persiguen al jugador, NO disparan
+ *    · Spawn inicial         : 6  |  Máximo simultáneo: 20
+ *    · Escenario             : Escenario2.png (suelo marrón)
+ *    · Música                : musica2.wav
+ *    · Texturas enemigos     : Textures/Enemigo_1/ con 5 frames de animación
+ *
+ *  Esta clase solo sobreescribe los parámetros; toda la lógica está en ModoBase.
+ * */
 public class ModoClasico extends ModoBase {
 
     @Override protected float    playerSpeed()      { return 5.0f;  }

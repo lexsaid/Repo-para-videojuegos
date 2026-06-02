@@ -50,6 +50,11 @@ import java.util.List;
 public class ModoInfierno implements GameMode {
  
     // ── Constantes ──────────────────────────────────────────
+    // Equivalentes a las de ModoBase pero declaradas localmente porque
+    // ModoInfierno no hereda de ModoBase.
+    // SHOOT_CD_P1/P2: cooldown de disparo de cada jugador (P2 es más rápido).
+    // ENEMY_SHOOT_TIME: segundos entre disparos de los enemigos tipo 1.
+    // MAX_ENEMIGOS y ENEMY_SPAWN_TIME son más agresivos que en los otros modos.
     private static final float ARENA_SIZE         = 20f;
     private static final float JUGADOR_MARGEN     = 0.35f;
     private static final float BULLET_SPEED       = 14f;
@@ -68,6 +73,8 @@ public class ModoInfierno implements GameMode {
     private static final float ENEMY_SHOOT_TIME   = 2.5f; // cadencia disparo Enemigo_2
  
     // ── Recursos jME ────────────────────────────────────────
+    // Nodos separados para las balas de cada jugador (bulletsNode1 y bulletsNode2)
+    // para facilitar la detección de colisiones: bala de P1 da puntos a P1, etc.
     private Node         rootNode, guiNode, modoRoot, modoGui;
     private Node         enemiesNode, bulletsNode1, bulletsNode2, enemyBulletsNode;
     private AssetManager assetManager;
@@ -77,6 +84,9 @@ public class ModoInfierno implements GameMode {
     private AudioNode    musicaFondo;
  
     // ── Estado global ────────────────────────────────────────
+    // score: total combinado de P1 + P2.
+    // scoreP1 / scoreP2: puntos individuales de cada jugador.
+    // spawnTimer: acumula tpf hasta ENEMY_SPAWN_TIME para generar el siguiente enemigo.
     private boolean gameOver   = false;
     private int     score      = 0;
     private int     scoreP1    = 0;
@@ -248,6 +258,13 @@ public class ModoInfierno implements GameMode {
         if (p1Muerto && p2Muerto && !gameOver) activarGameOver();
     }
  
+    /**
+     * Cámara dinámica para 2 jugadores:
+     *  - Si ambos viven: se centra entre los dos y hace zoom-out dinámico
+     *    según la distancia que los separa (altura entre 20 y 40 unidades).
+     *  - Si solo uno vive: sigue a ese jugador con zoom fijo.
+     *  - Si ambos muertos: la cámara queda estática donde estaba.
+     */
     private void actualizarCamara() {
         Vector3f centro;
         if (!p1Muerto && !p2Muerto) {

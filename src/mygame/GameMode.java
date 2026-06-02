@@ -7,10 +7,20 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 
 /**
- * Contrato que deben cumplir todos los modos de juego.
- * El Main los instancia, les pasa los recursos compartidos
- * y los destruye cuando el jugador vuelve al menú.
- */
+ * =========================================================
+ *  GAME MODE — Interfaz (contrato) de todos los modos de juego
+ * =========================================================
+ *  Define los métodos que Main necesita para controlar cualquier modo
+ *  sin saber los detalles internos de cada uno.
+ *
+ *  Patron de diseño: Polimorfismo / Programación orientada a interfaces.
+ *  Main solo trabaja con referencias de tipo GameMode, lo que permite
+ *  agregar nuevos modos sin modificar Main.
+ *
+ *  Implementaciones actuales:
+ *    ModoBase (abstracta) → ModoClasico, ModoAbanico, ModoSupervivencia, ModoZombies
+ *    ModoInfierno         → implementa GameMode directamente (sin herencia de ModoBase)
+ * */
 public interface GameMode {
 
     /**
